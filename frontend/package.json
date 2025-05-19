@@ -1,0 +1,14 @@
+{
+    "name": "diplom",
+    "version": "1.0.0",
+    "scripts": {
+        "serve": "concurrently \"npm:server:*\" -k",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "vue-cli-service": "^5.0.10"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2"
+    }
+}

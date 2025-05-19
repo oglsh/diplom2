@@ -1,0 +1,156 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Testing Platform</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="js/vue.min.js"></script>
+    <script src="js/axios.min.js"></script>
+    <script src="js/chart.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Load Testing Platform</h1>
+            <nav>
+                <button @click="switchView('dashboard')">Главная</button>
+                <button @click="switchView('test-config')">Тесты</button>
+                <button @click="switchView('reports')">Отчеты</button>
+            </nav>
+        </header>
+
+        <main>
+            <div v-if="currentView === 'dashboard'" class="dashboard">
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3>Активные тесты</h3>
+                        <p>{{ activeTestsCount }}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Завершенные сегодня</h3>
+                        <p>{{ completedTestsToday }}</p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="responseTimeChart"></canvas>
+                </div>
+            </div>
+
+            <div v-if="currentView === 'test-config'" class="test-config">
+                <h2>Конфигурация теста</h2>
+                <form @submit.prevent="saveTestConfig">
+                    <div class="form-group">
+                        <label for="testName">Наименование</label>
+                        <input id="testName" v-model="testConfig.name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="testScenario">Сценарий</label>
+                        <select id="testScenario" v-model="testConfig.scenario" required>
+                            <option value="login">Login Sequence</option>
+                            <option value="browsing">Product Browsing</option>
+                            <option value="checkout">Checkout Process</option>
+                            <option value="custom">Custom API Calls</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userCount">Количество пользователей</label>
+                        <input id="userCount" type="number" v-model.number="testConfig.userCount" min="1" max="10000" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="duration">Количество запросов</label>
+                        <input id="duration" type="number" v-model.number="testConfig.duration" min="1" max="1440" required>
+                    </div>
+
+
+                    <div v-if="testConfig.scenario === 'custom'" class="api-calls-section">
+
+                        <h3>Конфигурация запроса к API</h3>
+                        <div v-for="(call, index) in testConfig.apiCalls" :key="index" class="api-call">
+                            <div class="form-group">
+                                <label :for="'method-' + index">HTTP Метод</label>
+                                <select :id="'method-' + index" v-model="call.method">
+                                    <option value="GET">GET</option>
+                                    <option value="POST">POST</option>
+                                    <option value="PUT">PUT</option>
+                                    <option value="DELETE">DELETE</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label :for="'url-' + index">URL</label>
+                                <input :id="'url-' + index" v-model="call.url" required>
+                            </div>
+                            <div class="form-group">
+                                <label :for="'body-' + index">Тело запроса (JSON)</label>
+                                <textarea :id="'body-' + index" v-model="call.body"></textarea>
+                            </div>
+                            <button type="button" @click="removeApiCall(index)">Убрать</button>
+                        </div>
+                        <button type="button" @click="addApiCall">Добавить запрос к API</button>
+                    </div>
+
+                    <button type="submit">Сохранить</button>
+                    <button type="button" @click="startTest" :disabled="!savedConfig">Запустить</button>
+                </form>
+            </div>
+
+            <div v-if="currentView === 'reports'" class="reports">
+                <div class="report-filters">
+                    <div class="form-group">
+                        <label for="reportTest">Выберите тест</label>
+                        <select id="reportTest" v-model="selectedReportTestId">
+                            <option v-for="test in completedTests" :value="test.testId" :key="test.testId">{{ test.name }} - {{formatDate(test.endTime)}}</option>
+                        </select>
+                    </div>
+                    <button @click="loadReport">Загрузить отчет</button>
+                </div>
+
+                <div v-if="currentReport" class="report-details">
+                    <h3>Название: {{ currentReport.name }}</h3>
+                    <div class="report-meta">
+                        <p>Время начала: {{ formatDate(currentReport.startTime) }}</p>
+                        <p>Время окончания: {{ formatDate(currentReport.endTime) }}</p>
+                        <p>Количество запросов: {{ currentReport.duration }} запросов</p>
+                        <p>Количество пользователей: {{ currentReport.userCount }}</p>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <h4>Время ответа (мс)</h4>
+                            <p>Минимальное: {{ currentReport.result.minDuration.toFixed(2) }}</p>
+                            <p>Максимальное: {{ currentReport.result.maxDuration.toFixed(2) }}</p>
+                            <p>Среднее: {{currentReport.result.averageDuration.toFixed(2)}} </p>
+                        </div>
+                    </div>
+
+                    <div class="metric-card">
+                        <h4> Запросы</h4>
+                        <div class="metric-values">
+                            <p>Всего: {{ currentReport.result.totalRequests }}</p>
+                            <p>Успешно: {{ currentReport.result.successfulRequests }}</p>
+                            <p>Ошибок: {{ currentReport.result.failedRequests }}</p>
+                        </div>
+                    </div>
+
+                    <button @click="exportReport" class="export-btn">
+                        Экспортировать в PDF
+                    </button>
+                </div>
+                </div>
+        </main>
+
+        <div v-if="activeTest" class="active-test-notification">
+            <h3 style="color:white">Test in Progress: {{ activeTest.name }}</h3>
+            <progress :value="activeTest.progress" max="100"></progress>
+            <p>{{ activeTest.progress }}% выполнено</p>
+            <button @click="stopTest">Остановить</button>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
