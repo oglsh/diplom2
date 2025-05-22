@@ -1,8 +1,10 @@
-﻿using LoadTestingApp.Services;
+﻿using diplom2.Services;
+using LoadTestingApp.Services;
 using Microsoft.AspNetCore.Mvc;
 using NReco.PdfGenerator;
 using System;
 using System.Text;
+using System.Text.Json;
 using System.Xml.Linq;
 
 namespace LoadTestingApp.Controllers
@@ -12,23 +14,34 @@ namespace LoadTestingApp.Controllers
     public class ReportController : ControllerBase
     {
         private readonly LoadTestService _loadTestService;
+        private readonly AIAnalysisService _aiService;
 
-        public ReportController(LoadTestService loadTestService)
+        public ReportController(LoadTestService loadTestService, AIAnalysisService aiService)
         {
             _loadTestService = loadTestService;
+            _aiService = aiService;
         }
 
         [HttpGet("generate/{testId}")]
-        public IActionResult GenerateReport(string testId)
+        public async Task<IActionResult> GenerateReportAsync(string testId)
         {
             try
-            {
-                // Получаем данные теста
+            {               
                 var test = _loadTestService.GetCompletedTests()
                     .FirstOrDefault(t => t.TestId == testId);
 
                 if (test == null)
                     return NotFound(new { Message = "Test not found" });
+
+                var metricsForAI = new
+                {
+                    totalRequests = test.Result.TotalRequests,
+                    successRate = ((double)test.Result.SuccessfulRequests / test.Result.TotalRequests) * 100,
+                    avgResponseTime = test.Result.AverageDuration,
+                    errorCodes = test.Result.StatusCodesDistribution
+                };
+                string metricsJson = JsonSerializer.Serialize(metricsForAI);
+                var aiAnalysis = await _aiService.GetAnalysisAsync(metricsJson);
 
                 // Генерируем HTML контент
                 var htmlContent = $@"
@@ -79,6 +92,10 @@ namespace LoadTestingApp.Controllers
                             {string.Join("", test.Result.StatusCodesDistribution.Select(kv =>
                                 $"<tr><td>{kv.Key}</td><td>{kv.Value}</td></tr>"))}
                         </table>
+                    </div>
+                    <div class='section'>
+                        <h2>Анализ ИИ</h2>
+                        <div class='ai-comment'>{aiAnalysis}</div>
                     </div>
                 </body>
                 </html>";

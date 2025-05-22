@@ -1,3 +1,4 @@
+using diplom2.Services;
 using LoadTestingApp.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,8 @@ builder.Services.AddHttpClient("LoadTestClient", client =>
 });
 builder.Services.AddScoped<LoadTestService>();
 builder.Services.AddMemoryCache();
+builder.Services.AddScoped<AIAnalysisService>();
+builder.Services.AddHttpClient<AIAnalysisService>();
 
 //builder.Services.AddMvc();
 
