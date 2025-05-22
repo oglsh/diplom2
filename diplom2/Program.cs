@@ -1,13 +1,13 @@
 using LoadTestingApp.Services;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.StaticFiles;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Добавьте эти сервисы
-builder.Services.AddControllersWithViews(); // Для MVC + API
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddControllersWithViews(); 
 
 builder.Services.AddSpaStaticFiles(config => {
     config.RootPath = "wwwroot";
@@ -20,6 +20,8 @@ builder.Services.AddHttpClient("LoadTestClient", client =>
 builder.Services.AddScoped<LoadTestService>();
 builder.Services.AddMemoryCache();
 
+//builder.Services.AddMvc();
+
 
 builder.Services.AddSingleton<LoadTestService>(serviceProvider =>
 {
@@ -29,13 +31,13 @@ builder.Services.AddSingleton<LoadTestService>(serviceProvider =>
     return new LoadTestService(httpClientFactory, logger);
 });
 
-// Настройка CORS (раскомментируйте и измените)
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
         policy.AllowAnyOrigin()
-              .AllowAnyMethod() // Разрешаем POST
+              .AllowAnyMethod() 
               .AllowAnyHeader();
     });
 });
@@ -46,25 +48,23 @@ builder.Services.AddMetrics();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "LoadTestApi");
+    });
+}
 
 
-app.UseStaticFiles(); // Для wwwroot
+app.UseStaticFiles(); 
 app.UseSpaStaticFiles();
 app.UseRouting();
-//builder.Services.AddHttpClient();
-
-//app.MapControllerRoute(
-//    name: "default",
-//    pattern: "{controller=Home}/{action=Index}/{id?}");
-
 app.MapFallbackToFile("index.html");
-
 app.UseCors("AllowFrontend");
-
-
 app.UseRouting();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

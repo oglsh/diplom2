@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
+
 namespace LoadTestingApp.Controllers
 {
     [ApiController]
@@ -23,16 +24,6 @@ namespace LoadTestingApp.Controllers
             _cache = cache;
             _logger = logger;
         }
-
-
-
-        [HttpGet]
-        ActionResult test()
-        {
-            var df = "Мы тут";
-            return Ok(new { TestId = Guid.NewGuid() });
-        }
-
 
 
         [HttpPost("create")]
