@@ -2,12 +2,13 @@
 using LoadTestingApp.Services;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace diplom2.Services
 {
     public class AIAnalysisService
     {
-        private string _API_KEY = "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";
+        private string _API_KEY = "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";
         private string _API_URL = "https://openrouter.ai/api/v1/chat/completions";
         private readonly HttpClient _httpClient;
         private ILogger<LoadTestService> _logger;
@@ -52,26 +53,54 @@ namespace diplom2.Services
                 if (choices.GetArrayLength() == 0)
                     throw new InvalidOperationException("AI-ответ не содержит ни одного выбора");
 
-                var message = choices[0].GetProperty("message");
-                var contentElem = message.GetProperty("content");
+                var contentElem = choices[0]
+       .GetProperty("message")
+       .GetProperty("content");
 
-                // Если это массив сегментов, объединяем их тексты
+                string rawText;
                 if (contentElem.ValueKind == JsonValueKind.Array)
                 {
-                    var texts = contentElem
+                    var segments = contentElem
                         .EnumerateArray()
                         .Where(el => el.TryGetProperty("text", out _))
-                        .Select(el => el.GetProperty("text").GetString());
+                        .Select(el => el.GetProperty("text").GetString().Trim());
 
-                    return string.Join("", texts);
+                    rawText = string.Join(" ", segments);
                 }
-                // Если вдруг всё же строка
                 else if (contentElem.ValueKind == JsonValueKind.String)
                 {
-                    return contentElem.GetString();
+                    rawText = contentElem.GetString();
+                }
+                else
+                {
+                    throw new InvalidOperationException("Не удалось извлечь текст из message.content");
                 }
 
-                throw new InvalidOperationException("Не удалось найти поле message.content в ответе AI");
+                // Убираем лишние пробелы и единичные переносы строк
+                rawText = Regex.Replace(rawText, @"\r?\n[ \t]*", "\n");       // нормализуем переходы
+                rawText = Regex.Replace(rawText, @"[ \t]{2,}", " ");         // сводим подряд идущие пробелы к одному
+
+                // Разбиваем на абзацы по двойным переносам строк (\n\n)
+                var paragraphs = rawText
+                    .Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(p => p.Trim());
+
+                // Формируем финальный HTML
+                var sb = new StringBuilder();
+                foreach (var para in paragraphs)
+                {
+                    // внутри абзаца одиночные \n превращаем в <br/>
+                    var htmlPara = Regex.Replace(
+                        para,
+                        @"\r?\n",
+                        "<br/>"
+                    );
+                    sb.Append("<p>");
+                    sb.Append(htmlPara);
+                    sb.Append("</p>");
+                }
+
+                return sb.ToString();
 
             }
             catch (Exception ex)
