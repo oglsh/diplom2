@@ -16,6 +16,7 @@ namespace diplom2.Models
         public List<RequestResult> IndividualResults { get; set; }
         public Dictionary<string, int> StatusCodesDistribution { get; set; } = new();
         public List<string> Errors { get; set; } = new();
+        public string MetricsSummary { get; set; }
     }
 
     public class RequestResult
@@ -25,5 +26,6 @@ namespace diplom2.Models
         public bool IsSuccess { get; set; }
         public string? Error { get; set; }
         public string ErrorDetails { get; set; }
+        public string MetricsData { get; set; }
     }
 }

@@ -8,7 +8,7 @@ namespace diplom2.Services
 {
     public class AIAnalysisService
     {
-        private string _API_KEY = "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";
+        private string _API_KEY = "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";
         private string _API_URL = "https://openrouter.ai/api/v1/chat/completions";
         private readonly HttpClient _httpClient;
         private ILogger<LoadTestService> _logger;
@@ -54,8 +54,8 @@ namespace diplom2.Services
                     throw new InvalidOperationException("AI-ответ не содержит ни одного выбора");
 
                 var contentElem = choices[0]
-       .GetProperty("message")
-       .GetProperty("content");
+                    .GetProperty("message")
+                    .GetProperty("content");
 
                 string rawText;
                 if (contentElem.ValueKind == JsonValueKind.Array)

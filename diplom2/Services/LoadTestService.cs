@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using diplom2.Models;
 using LoadTestingApp.Models;
+using Microsoft.Extensions.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging;
 using Prometheus;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -127,6 +128,7 @@ namespace LoadTestingApp.Services
         private async Task<RequestResult> ExecuteRequestAsync(ApiCall apiCall, CancellationToken ct)
         {
             var sw = Stopwatch.StartNew();
+            var metricsBuilder = new StringBuilder();
             try
             {
                 using var request = new HttpRequestMessage(
@@ -144,9 +146,21 @@ namespace LoadTestingApp.Services
                 using var client = _httpClientFactory.CreateClient("LoadTestClient");
                 using var response = await client.SendAsync(request, ct);
 
+
+                var statusCode = ((int)response.StatusCode).ToString();
+                var responseTime = sw.Elapsed.TotalMilliseconds;
                 // Запись метрик
-                _requestCounter.WithLabels(((int)response.StatusCode).ToString()).Inc();
-                _responseTimes.Observe(sw.Elapsed.TotalMilliseconds);
+
+                metricsBuilder.AppendLine($"[{DateTime.UtcNow:O}] " +
+    $"URL: {apiCall.Url}, " +
+    $"Method: {apiCall.Method}, " +
+    $"Status: {statusCode}, " +
+    $"Response: {responseTime} ms");
+                var metricsString = metricsBuilder.ToString();
+
+                // Отправляем метрики
+                _requestCounter.WithLabels(statusCode).Inc();
+                _responseTimes.Observe(responseTime);
 
                 // Обработка 500 ошибки
                 if (response.StatusCode == HttpStatusCode.InternalServerError)
@@ -166,7 +180,8 @@ namespace LoadTestingApp.Services
                 {
                     StatusCode = response.StatusCode,
                     Duration = sw.Elapsed,
-                    IsSuccess = response.IsSuccessStatusCode
+                    IsSuccess = response.IsSuccessStatusCode,
+                    MetricsData = metricsString
                 };
             }
             catch (TaskCanceledException ex) when (ct.IsCancellationRequested)
@@ -216,6 +231,18 @@ namespace LoadTestingApp.Services
             .Select(r => $"[{r.StatusCode}] {r.Error}: {r.ErrorDetails}")
             .ToList(),
             };
+
+            var allMetrics = new StringBuilder();
+            foreach (var res in results)
+            {
+                if (!string.IsNullOrEmpty(res.MetricsData))
+                {
+                    allMetrics.AppendLine(res.MetricsData);
+                    allMetrics.AppendLine("'\n'");
+                }
+            }
+
+            result.MetricsSummary = allMetrics.ToString();
 
 
             // Группировка статус-кодов

@@ -38,7 +38,8 @@ namespace LoadTestingApp.Controllers
                     totalRequests = test.Result.TotalRequests,
                     successRate = ((double)test.Result.SuccessfulRequests / test.Result.TotalRequests) * 100,
                     avgResponseTime = test.Result.AverageDuration,
-                    errorCodes = test.Result.StatusCodesDistribution
+                    errorCodes = test.Result.StatusCodesDistribution,
+                    metr = test.Result.MetricsSummary
                 };
                 string metricsJson = JsonSerializer.Serialize(metricsForAI);
                 var aiAnalysis = await _aiService.GetAnalysisAsync(metricsJson);
@@ -92,6 +93,7 @@ namespace LoadTestingApp.Controllers
                             {string.Join("", test.Result.StatusCodesDistribution.Select(kv =>
                                 $"<tr><td>{kv.Key}</td><td>{kv.Value}</td></tr>"))}
                         </table>
+                    </div>
                     </div>
                     <div class='section'>
                         <h2>Анализ ИИ</h2>
